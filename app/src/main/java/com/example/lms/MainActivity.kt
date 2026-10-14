@@ -1,10 +1,10 @@
 package com.example.lms
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -14,19 +14,24 @@ import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.Button
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.*
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.lms.ui.theme.LMSTheme
 
@@ -36,7 +41,6 @@ class MainActivity : ComponentActivity() {
 
     private var webView: WebView? = null
 
-    @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -59,12 +63,12 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         webView?.onResume()
-        webView?.resumeTimers()
+        WebView.resumeTimers()
     }
 
     override fun onPause() {
         webView?.onPause()
-        webView?.pauseTimers()
+        WebView.pauseTimers()
         super.onPause()
     }
 
@@ -91,8 +95,9 @@ private fun LMSWebView(
     var loadError by remember { mutableStateOf(false) }
     var progress by remember { mutableIntStateOf(0) }
     var currentWebView by remember { mutableStateOf<WebView?>(null) }
+    var canGoBack by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = currentWebView?.canGoBack() == true) {
+    BackHandler(enabled = canGoBack) {
         currentWebView?.goBack()
     }
 
@@ -103,8 +108,8 @@ private fun LMSWebView(
                 WebView(context).apply {
                     currentWebView = this
                     onWebViewCreated(this)
-
                     setBackgroundColor(android.graphics.Color.WHITE)
+
                     settings.apply {
                         javaScriptEnabled = true // Required by the LMS web application.
                         domStorageEnabled = true
@@ -125,11 +130,13 @@ private fun LMSWebView(
                         override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                             loading = true
                             loadError = false
+                            canGoBack = view?.canGoBack() == true
                         }
 
                         override fun onPageFinished(view: WebView?, pageUrl: String?) {
                             loading = false
                             progress = 100
+                            canGoBack = view?.canGoBack() == true
                         }
 
                         override fun onReceivedError(
@@ -148,15 +155,16 @@ private fun LMSWebView(
                             request: WebResourceRequest?
                         ): Boolean {
                             val uri: Uri = request?.url ?: return false
-                            // Keep the LMS site and its subdomains in-app. Open unrelated links externally.
                             val host = uri.host.orEmpty().lowercase()
                             val isLmsHost = host == "lms-iota-seven.vercel.app" ||
                                 host.endsWith(".vercel.app") ||
                                 host == "juet.ac.in" || host.endsWith(".juet.ac.in")
+
                             if (uri.scheme == "https" && isLmsHost) return false
+
                             if (uri.scheme == "http" || uri.scheme == "https") {
                                 return try {
-                                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, uri))
                                     true
                                 } catch (_: android.content.ActivityNotFoundException) {
                                     false
@@ -170,6 +178,7 @@ private fun LMSWebView(
                         override fun onProgressChanged(view: WebView?, newProgress: Int) {
                             progress = newProgress
                             loading = newProgress < 100
+                            canGoBack = view?.canGoBack() == true
                         }
                     }
 
@@ -177,7 +186,10 @@ private fun LMSWebView(
                     if (!restored) loadUrl(url)
                 }
             },
-            update = { view -> currentWebView = view }
+            update = { view ->
+                currentWebView = view
+                canGoBack = view.canGoBack()
+            }
         )
 
         if (loading && !loadError) {
@@ -186,7 +198,9 @@ private fun LMSWebView(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                CircularProgressIndicator(progress = { (progress.coerceIn(0, 100) / 100f).coerceAtLeast(0.08f) })
+                CircularProgressIndicator(
+                    progress = { (progress.coerceIn(0, 100) / 100f).coerceAtLeast(0.08f) }
+                )
                 Text(
                     text = if (progress > 0) "Loading LMS… $progress%" else "Connecting to LMS…",
                     style = MaterialTheme.typography.bodyMedium
