@@ -63,12 +63,10 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         webView?.onResume()
-        WebView.resumeTimers()
     }
 
     override fun onPause() {
         webView?.onPause()
-        WebView.pauseTimers()
         super.onPause()
     }
 
