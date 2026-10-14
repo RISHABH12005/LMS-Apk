@@ -111,7 +111,7 @@ private fun LMSWebView(
                     setBackgroundColor(android.graphics.Color.WHITE)
 
                     settings.apply {
-                        javaScriptEnabled = true // Required by the LMS web application.
+                        javaScriptEnabled = true
                         domStorageEnabled = true
                         loadsImagesAutomatically = true
                         cacheMode = WebSettings.LOAD_DEFAULT
@@ -130,7 +130,6 @@ private fun LMSWebView(
                         override fun onPageStarted(view: WebView?, pageUrl: String?, favicon: Bitmap?) {
                             loading = true
                             loadError = false
-                            canGoBack = view?.canGoBack() == true
                         }
 
                         override fun onPageFinished(view: WebView?, pageUrl: String?) {
