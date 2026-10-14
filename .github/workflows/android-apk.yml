@@ -81,7 +81,7 @@ jobs:
           (adaptive / "lms.xml").write_text(xml)
           (adaptive / "lms_round.xml").write_text(xml)
           source_png.unlink()
-          print("Cow launcher icon generated for all Android densities and adaptive icons.")
+          print("Cow launcher icon generated for all Android densities and adaptive icons; source asset decoded and loaded.")
           PY
 
       - name: Set up Gradle
