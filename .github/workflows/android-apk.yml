@@ -27,6 +27,63 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Set up Python for icon resources
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install image tooling
+        run: python -m pip install --disable-pip-version-check Pillow
+
+      - name: Apply cow launcher logo
+        run: |
+          python - <<'PY'
+          import base64
+          from pathlib import Path
+          from PIL import Image
+
+          root = Path("app/src/main")
+          encoded = root / "logo/cow-logo.png.b64"
+          source_png = root / "cow-logo-source.png"
+          source_png.write_bytes(base64.b64decode(encoded.read_text().strip()))
+          source = Image.open(source_png).convert("RGB")
+
+          # Adaptive icon foreground. Android applies the launcher mask.
+          drawable = root / "res/drawable"
+          drawable.mkdir(parents=True, exist_ok=True)
+          source.resize((432, 432), Image.Resampling.LANCZOS).save(
+              drawable / "cow_logo_foreground.png", optimize=True
+          )
+
+          # Generate proper density-sized legacy launcher icons.
+          sizes = {
+              "mipmap-mdpi": 48,
+              "mipmap-hdpi": 72,
+              "mipmap-xhdpi": 96,
+              "mipmap-xxhdpi": 144,
+              "mipmap-xxxhdpi": 192,
+          }
+          for folder_name, size in sizes.items():
+              folder = root / "res" / folder_name
+              folder.mkdir(parents=True, exist_ok=True)
+              icon = source.resize((size, size), Image.Resampling.LANCZOS)
+              icon.save(folder / "lms.webp", "WEBP", quality=95, method=6)
+              icon.save(folder / "lms_round.webp", "WEBP", quality=95, method=6)
+
+          adaptive = root / "res/mipmap-anydpi-v26"
+          adaptive.mkdir(parents=True, exist_ok=True)
+          xml = '''<?xml version="1.0" encoding="utf-8"?>
+          <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+              <background android:drawable="@android:color/white" />
+              <foreground android:drawable="@drawable/cow_logo_foreground" />
+          </adaptive-icon>
+          '''
+          (adaptive / "lms.xml").write_text(xml)
+          (adaptive / "lms_round.xml").write_text(xml)
+          source_png.unlink()
+          print("Cow launcher icon generated for all Android densities and adaptive icons.")
+          PY
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
@@ -43,14 +100,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish LMS APK v1.2 release
-        if: github.event_name == 'push' && github.event.head_commit.message == 'Publish LMS APK v1.2 release'
+      - name: Publish LMS APK v1.3 release
+        if: github.event_name == 'push' && github.event.head_commit.message == 'Fix cow launcher logo and publish v1.3 release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.2
-          name: LMS Android App v1.2
+          tag_name: v1.3
+          name: LMS Android App v1.3
           body: |
-            LMS Android app with corrected website URL and improved WebView loading,
-            navigation, saved state, and retry handling.
+            Updated LMS Android app with the requested cow launcher logo,
+            corrected LMS URL, and improved WebView loading and navigation.
           files: app/build/outputs/apk/debug/app-debug.apk
           make_latest: true
